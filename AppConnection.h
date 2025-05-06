@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ArduinoJson.h>
 
 #define HOST "192.168.125.122"
 #define PORT 3333
@@ -15,20 +16,13 @@
 #define key_calibrate 6
 #define key_home 7
 
-struct AppData
-{
-  int cmd;
-  double RA;
-  double dec;
-};
-
 class AppConnection 
 {
   public:
 
   bool init();
   void getStatus();
-  bool getCommand(AppData &cmd);
+  bool getCommand(JsonDocument &cmd);
 
   private:
     void reconnect();

@@ -3,7 +3,7 @@
 // input commands
 // look up coordinates
 
-#define MYDEBUG
+#define MYDEBUG 1
 
 #include "devicetime.h"
 #include "SkyMap.h"
@@ -39,12 +39,14 @@ double currentDEC;
 #define mylongitude -3.0954659
 
 void setup() {  
-  
-#ifdef MYDEBUG
+
+//#ifdef MYDEBUG
   Serial.begin(9600);
   Serial.println("lets go!");
-#endif
+//#endif
+Serial.println("pre");
   app.init();
+Serial.println("post");
   calibrating = false;
   motors.init();
   currentAction = INACTIVE;
@@ -76,14 +78,14 @@ void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
 }
 
 void loop() {
-  AppData data;
+  JsonDocument data;
   while (app.getCommand(data)) {
-    switch (data.cmd) {
-      case key_goto:
+      JsonDocument msg = data["message"];
+      if (data["messageType"] == "SetTarget") {
         if (currentAction == LOOKUP)
         {
-          currentRA = data.RA;
-          currentDEC = data.dec;
+          currentRA = msg["RA"];
+          currentDEC = msg["message"]["DEC"];
           double alt, az;
           RADEC_to_ALTAZ(currentRA, currentDEC, alt, az);
           motors.setTarget(alt, az);
@@ -92,33 +94,27 @@ void loop() {
         else {
           currentAction = (currentAction == TRACKING) ? INACTIVE : TRACKING;
         }
-        break;
-      case key_up:
-      case key_down:
-      case key_left:
-      case key_right:
-        updown = (data.cmd == key_up) ? 1 : (data.cmd == key_down) ? -1 : 0;
-        leftright = (data.cmd == key_left) ? -1 : (data.cmd == key_right) ? 1 : 0;
+      }
+      if (data["messageType"] == "Move") {
+        updown = (msg["Move"] == "up") ? 1 : (msg["Move"] == "down") ? -1 : 0;
+        leftright = (msg["Move"] == "left") ? -1 : (msg["Move"] == "right") ? 1 : 0;
         if (currentAction != SETTIME) {
           motors.Move(updown,leftright,0,calibrating); // alt az cal
           currentAction = INACTIVE;
         }
-        break;
-      case key_calibrate:
-        if (calibrating) {
-          calibrating = false;
-        }
-        else {
-          calibrating = true;
-        }
-        break;
-      case key_home:
+      }
+      if (data["messageType"] == "SetCalibration") {
+        calibrating = msg["Calibration"];
+      }
+      if (data["messageType"] == "Reset") {
         // sets position to vertical up, az pointing north
         currentAction = PACKAWAY;
-        break;
-      default:
-        break;
-    }
+      }
+     
+      if (data["messageType"] == "Stop") {
+        // stop all motors
+        // TODO
+      }
     delay(200);
   }
 
