@@ -44,10 +44,6 @@ bool AppConnection::getCommand(JsonDocument &cmd)
         char c = client.read();
         if (c == '\n' && currentLineIsBlank)
         {
-          // EOF. Respond with current status
-          //client.println("HTTP/1.1 200 OK\nall ok, probably more to add here...");
-          
-          //delay(100);
           break;
         }
         //Serial.print(c);
@@ -85,8 +81,11 @@ bool AppConnection::getCommand(JsonDocument &cmd)
       return false;
     }
     Serial.println("good json: " + content);
+    String statusjson = "{\"Tracking\":false,\"Calibrating\":false,\"DateTimeSet\":true, \"targetRA\":1.234,\"targetDEC\":5.6789,\"currentRA\":0.1111,\"currentDEC\":0.2222}";
+    int msglen = statusjson.length();
+    
+    client.println("HTTP/1.1 200 OK\nContent-Length: "+String(msglen)+"\n\n" + statusjson);
 
-    client.println("HTTP/1.1 200 OK\nall ok, probably more to add here...");
     delay(100);
     client.stop();
   }

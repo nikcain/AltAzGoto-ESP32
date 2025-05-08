@@ -5,6 +5,7 @@
 
 #define MYDEBUG 1
 
+#include "time.h"
 #include "devicetime.h"
 #include "SkyMap.h"
 #include "AppConnection.h"
@@ -23,7 +24,6 @@ stepperMotors motors;
 //object found, waiting confirmation to slew
 #define READYTOGO 21
 #define SLEWING 22
-#define SETTIME 23
 #define MOVING 24
 #define PACKAWAY 26
 
@@ -35,8 +35,8 @@ SKYMAP_skymap_t skymap;
 double currentRA;
 double currentDEC;
 
-#define mylatitude 52.6027972
-#define mylongitude -3.0954659
+double mylatitude = 52.6027972;
+double mylongitude = -3.0954659;
 
 void setup() {  
 
@@ -44,9 +44,20 @@ void setup() {
   Serial.begin(9600);
   Serial.println("lets go!");
 //#endif
-Serial.println("pre");
+
   app.init();
-Serial.println("post");
+  const char* ntpServer = "pool.ntp.org";
+  const long  gmtOffset_sec = 0;
+  const int   daylightOffset_sec = 3600;
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  delay(100);
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+
   calibrating = false;
   motors.init();
   currentAction = INACTIVE;
@@ -98,22 +109,22 @@ void loop() {
       if (data["messageType"] == "Move") {
         updown = (msg["Move"] == "up") ? 1 : (msg["Move"] == "down") ? -1 : 0;
         leftright = (msg["Move"] == "left") ? -1 : (msg["Move"] == "right") ? 1 : 0;
-        if (currentAction != SETTIME) {
-          motors.Move(updown,leftright,0,calibrating); // alt az cal
-          currentAction = INACTIVE;
-        }
+        motors.Move(updown,leftright,0,calibrating); // alt az cal
+        currentAction = INACTIVE;
       }
       if (data["messageType"] == "SetCalibration") {
         calibrating = msg["Calibration"];
+      }
+      if (data["messageType"] == "SetTracking") {
+        calibrating = msg["Tracking"];
       }
       if (data["messageType"] == "Reset") {
         // sets position to vertical up, az pointing north
         currentAction = PACKAWAY;
       }
-     
       if (data["messageType"] == "Stop") {
         // stop all motors
-        // TODO
+        currentAction = INACTIVE;
       }
     delay(200);
   }
