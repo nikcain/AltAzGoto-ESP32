@@ -1,44 +1,49 @@
 #ifndef devicetime_h
 #define devicetime_h
 
-tm getTime() {
-  time_t now;
-  struct tm timeinfo;
-  getLocalTime(&timeinfo);
-  return timeinfo;
+unsigned long timeoffset = 0;
+unsigned int year=2024;
+unsigned int month = 11;
+unsigned int day = 29;
+static bool isTimeSet = false;
+
+bool deviceTimeSet()
+{
+  return isTimeSet;
 }
 
-int getYear() { 
-  tm timeinfo = getTime();
-  return timeinfo.tm_year;
+void setDeviceTime( unsigned int _year, unsigned int _month, unsigned int _day,
+                    unsigned long _h, unsigned long _m, unsigned long _s)
+{
+  year = _year;
+  month = _month;
+  day = _day;
+  _h+=24;
+  _m+=60;
+  _s+=60;
+  timeoffset =  ((_h % 24 * 60 * 60 * 1000) +
+                (_m % 60 * 60 * 1000) +
+                (_s % 60 * 1000)) - millis();
+  Serial.println("offset = " + String(timeoffset));
+  isTimeSet = true;
 }
 
-int getMonth() { 
-  tm timeinfo = getTime();
-  return timeinfo.tm_mon;
-}
-
-int getDay() { 
-  tm timeinfo = getTime();
-  return timeinfo.tm_mday;
-}
-
+int getYear() { return year; }
+int getMonth() { return month; }
+int getDay() { return day; }
 int getHour() 
 {
-  tm timeinfo = getTime();
-  return timeinfo.tm_hour;
+  return ((((millis() + timeoffset) / 1000) / 60) / 60) % 24;
 }
 
 int getMinute()
 {
-  tm timeinfo = getTime();
-  return timeinfo.tm_min;
+  return (((millis() + timeoffset) / 1000) / 60) % 60;
 }
 
 int getSeconds()
 {
-  tm timeinfo = getTime();
-  return timeinfo.tm_sec;
+  return ((millis() + timeoffset) / 1000) % 60;
 }
 
 String getTimeString()
@@ -52,7 +57,7 @@ String getTimeString()
 String getDateString()
 {
   char buf1[10];
-  sprintf(buf1, "%02d/%02d/%04d",  getDay(), getMonth(), getYear());
+  sprintf(buf1, "%02d/%02d/%04d",  day, month, year);
   return String(buf1);
 }
 

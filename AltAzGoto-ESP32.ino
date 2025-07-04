@@ -16,13 +16,11 @@ int currentAction;
 bool calibrating = false;
 stepperMotors motors;
 
+#define LED 2
+
 // status codes
 #define INACTIVE -1
 #define TRACKING 16
-//celestialObjectID complete, ready to look up
-#define LOOKUP 20 
-//object found, waiting confirmation to slew
-#define READYTOGO 21
 #define SLEWING 22
 #define MOVING 24
 #define PACKAWAY 26
@@ -40,23 +38,17 @@ double mylongitude = -3.0954659;
 
 void setup() {  
 
+  pinMode(LED, OUTPUT);
+
 //#ifdef MYDEBUG
   Serial.begin(9600);
   Serial.println("lets go!");
 //#endif
 
   app.init();
-  const char* ntpServer = "pool.ntp.org";
-  const long  gmtOffset_sec = 0;
-  const int   daylightOffset_sec = 3600;
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  delay(100);
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return;
-  }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  
+  digitalWrite(LED,HIGH);
+  //Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 
   calibrating = false;
   motors.init();
@@ -70,6 +62,7 @@ void setup() {
 
 void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
 {
+  //Serial.println("RADEC_to_ALTAZ " + String(ra) + " " + String(dec));
     SKYMAP_date_time_values_t dt;
     dt.year = getYear();
     dt.month = getMonth();
@@ -86,25 +79,42 @@ void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
     SKYMAP_search_result_t search_result = SKYMAP_observe_object(&skymap);
     alt = search_result.altitude;
     az = search_result.azimuth;
+    
+  //Serial.println("RADEC_to_ALTAZ result" + String(alt) + " " + String(az));
 }
 
 void loop() {
   JsonDocument data;
-  while (app.getCommand(data)) {
+  double a1,a2;
+  motors.getCurrentPostion(a1,a2);
+  //Serial.println("current pos " + String(a1) + " " + String(a2));
+  String currentStatus = "{\"Tracking\":" + String((currentAction==TRACKING)?"true":"false") + 
+                          ",\"Calibrating\":" + String((calibrating)?"true":"false") + 
+                          ",\"DateTimeSet\":true, \"targetRA\":1.234,\"targetDEC\":5.6789,\"currentRA\":" + String(a1) + 
+                          ",\"currentDEC\":" + String(a2) + "}";
+  //Serial.println(currentStatus);
+  while (app.getCommand(data, currentStatus)) {
+    if (data["year"])
+    {
+      if (!deviceTimeSet())
+      {
+        Serial.println("setting time");
+        setDeviceTime(data["year"], data["month"], data["day"], data["hour"], data["minutes"], data["seconds"]);
+        Serial.println(getTimeString());
+      }
+    }
+    if (data["message"])
+    {
       JsonDocument msg = data["message"];
+      Serial.println("messagetype " + String(data["messageType"]));
       if (data["messageType"] == "SetTarget") {
-        if (currentAction == LOOKUP)
-        {
           currentRA = msg["RA"];
-          currentDEC = msg["message"]["DEC"];
+          currentDEC = msg["DEC"];
           double alt, az;
           RADEC_to_ALTAZ(currentRA, currentDEC, alt, az);
+          Serial.println("setting target alt: " + String(alt) + " az: " + String(az));
           motors.setTarget(alt, az);
           currentAction = SLEWING;
-        }
-        else {
-          currentAction = (currentAction == TRACKING) ? INACTIVE : TRACKING;
-        }
       }
       if (data["messageType"] == "Move") {
         updown = (msg["Move"] == "up") ? 1 : (msg["Move"] == "down") ? -1 : 0;
@@ -116,7 +126,16 @@ void loop() {
         calibrating = msg["Calibration"];
       }
       if (data["messageType"] == "SetTracking") {
-        calibrating = msg["Tracking"];
+        Serial.println("have tracking msg");
+        if (msg["Tracking"]) 
+        {
+          Serial.println("tracking on");
+          currentAction = TRACKING;
+        }
+        else {
+          Serial.println("tracking off");
+          currentAction = INACTIVE;
+        }
       }
       if (data["messageType"] == "Reset") {
         // sets position to vertical up, az pointing north
@@ -126,25 +145,35 @@ void loop() {
         // stop all motors
         currentAction = INACTIVE;
       }
-    delay(200);
+    //delay(200);
+    currentStatus = "{\"Tracking\":" + String((currentAction==TRACKING)?"true":"false") + 
+                          ",\"Calibrating\":" + String((calibrating)?"true":"false") + 
+                          ",\"DateTimeSet\":true, \"targetRA\":1.234,\"targetDEC\":5.6789,\"currentRA\":" + String(a1) + 
+                          ",\"currentDEC\":" + String(a2) + "}";
+    }
   }
 
   // state machine actions
   switch (currentAction) {
     case SLEWING:
       // slewing to object
-      if (motors.completedSlew()) currentAction = TRACKING;
+      Serial.println("Completed Slew, now tracking");
+      currentAction = TRACKING;        
       break;
-    // manual move. Values for direction, not steps (motors will handle amounts)
     case TRACKING:
-      // tracking
+      // tracking - recalculate alt/az for current time, and
+      // move there
+      Serial.println("Tracking");
       double alt, az;
       RADEC_to_ALTAZ(currentRA, currentDEC, alt, az);
       motors.setTarget(alt, az);
       break;
     case PACKAWAY:
-        motors.setTarget(90,0);
+      motors.setTarget(90,0);
     break;
+    case INACTIVE:
+      //Serial.print("-");
+      break;
     default:
       break;
   }

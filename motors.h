@@ -22,15 +22,26 @@ class stepperMotors
     // then does a goto to a known object. Once there, turn on calibrate mode,
     // manual move to center the object, and turn off calibrate mode (calibrate
     // mode simply doesn't update the stored current position during a manual move)
-    AzStepper = new AccelStepper(AccelStepper::DRIVER, 14,15); // step A0, dir A1 
+
+    // ESP-wroom-32 pin out - using 10 pins on LHS going from 3.3V
+    // first four used for V & GND, then two sets of Enable, Step, Dir
+    //  Az step = 25, dir = 27
+
+  // 34, 35, 36, & 39 are all input only!!!
+
+    // Alt step = 42, dir = 40 
+    // enable pins wired to GND (enabled)
+    AzStepper = new AccelStepper(AccelStepper::DRIVER, 27, 26 ); // step, dir 
     AzStepper->setMaxSpeed(maxspeed);
     AzStepper->setAcceleration(acceleration);
     AzStepper->setCurrentPosition(0);
+    //AzStepper->setMinPulseWidth(5);
 
-    AltStepper = new AccelStepper(AccelStepper::DRIVER, 16,17);    // step A2, dir A3
+    AltStepper = new AccelStepper(AccelStepper::DRIVER, 12, 14);    // step, dir 
     AltStepper->setMaxSpeed(maxspeed);
     AltStepper->setAcceleration(acceleration);
     AltStepper->setCurrentPosition(getStepsFordegrees(true, 90));
+    //AltStepper->setMinPulseWidth(5);
 
     moveamount = 10;
   }
@@ -44,6 +55,11 @@ class stepperMotors
   int getStepsFordegrees(bool alt, double angle)
   {
     return (int)(angle * ((alt)? altfullcirclesteps : azfullcirclesteps) / 360.0 );
+  }
+
+  double getDegreesForSteps(bool alt, long steps)
+  {
+    return steps / (((alt)? altfullcirclesteps : azfullcirclesteps) / 360.0 );
   }
 
   void Move(int altsteps, int azsteps, bool continuouspress, bool calibrate)
@@ -61,18 +77,33 @@ class stepperMotors
     }
     AltStepper->moveTo(AltStepper->currentPosition() + altsteps*moveamount);
     AzStepper->moveTo(AzStepper->currentPosition() + azsteps*moveamount);
+    keepMovingUntilDone();
   }
 
   void setTarget(double alt, double az)
   {
     AltStepper->moveTo(getStepsFordegrees(true, alt));
     AzStepper->moveTo(getStepsFordegrees(false, az));
+    keepMovingUntilDone();
+  }
+
+  void keepMovingUntilDone()
+  {
+    do {
+        update();
+    } while (!completedSlew());
   }
 
   bool completedSlew()
   {
     return (AltStepper->currentPosition() == AltStepper->targetPosition() &&
             AzStepper->currentPosition() == AzStepper->targetPosition());
+  }
+
+  void getCurrentPostion(double& alt, double& az)
+  {
+    alt = getDegreesForSteps(AltStepper->currentPosition(), true);
+    az = getDegreesForSteps(AzStepper->currentPosition(), false);
   }
 
 private:

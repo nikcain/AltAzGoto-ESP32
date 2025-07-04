@@ -22,7 +22,7 @@ class AppConnection
 
   bool init();
   void getStatus();
-  bool getCommand(JsonDocument &cmd);
+  bool getCommand(JsonDocument &cmd, String currentStatus);
 
   private:
     void reconnect();
