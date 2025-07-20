@@ -1,28 +1,23 @@
 #include "AppConnection.h"
 
-#define LED 2
+const char *ssid = "Astro";
+const char *password = "pants-run-glad";
 
 WiFiServer m_server(80);
 
 bool AppConnection::init()
 {
   Serial.println("app init");
-  WiFi.mode(WIFI_STA);
-  Serial.println("pre bgin");
-  wl_status_t r = WiFi.begin("homewifi", "pants-run-glad");
-  Serial.println("post begin "+ String(r));
 
-  //const char* ntpServer = "pool.ntp.org";
-  //Serial.println("pre config");
-  //configTime(0, 0, ntpServer);
-  //Serial.println("post config");
-wl_status_t st;
-do {
-  st = WiFi.status();
-  Serial.println(st);
-  delay(200);
-} while (st != 3);
-  
+  if (!WiFi.softAP(ssid, password)) {
+    log_e("Soft AP creation failed.");
+    while(1);
+  }
+
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(myIP);
+
   m_server.begin();
   Serial.println(WiFi.localIP());
   return true;
@@ -93,7 +88,6 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
       int msglen = currentStatus.length();
       client.println("HTTP/1.1 200 OK\nContent-Length: "+String(msglen)+"\n\n" + currentStatus);
     }
-    //delay(500);
     client.stop();
     
     return true;

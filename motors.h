@@ -35,21 +35,15 @@ class stepperMotors
     AzStepper->setMaxSpeed(maxspeed);
     AzStepper->setAcceleration(acceleration);
     AzStepper->setCurrentPosition(0);
-    //AzStepper->setMinPulseWidth(5);
+    //AzStepper->setMinPulseWidth(20);
 
     AltStepper = new AccelStepper(AccelStepper::DRIVER, 12, 14);    // step, dir 
     AltStepper->setMaxSpeed(maxspeed);
     AltStepper->setAcceleration(acceleration);
     AltStepper->setCurrentPosition(getStepsFordegrees(true, 90));
-    //AltStepper->setMinPulseWidth(5);
+    //AltStepper->setMinPulseWidth(20);
 
     moveamount = 10;
-  }
-
-  void update()
-  {
-    AzStepper->run();
-    AltStepper->run();
   }
 
   int getStepsFordegrees(bool alt, double angle)
@@ -90,14 +84,10 @@ class stepperMotors
   void keepMovingUntilDone()
   {
     do {
-        update();
-    } while (!completedSlew());
-  }
-
-  bool completedSlew()
-  {
-    return (AltStepper->currentPosition() == AltStepper->targetPosition() &&
-            AzStepper->currentPosition() == AzStepper->targetPosition());
+      AzStepper->run();
+      AltStepper->run();
+      yield();
+    } while (!(AltStepper->distanceToGo() == 0 && AzStepper->distanceToGo() == 0));
   }
 
   void getCurrentPostion(double& alt, double& az)

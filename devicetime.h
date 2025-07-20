@@ -56,7 +56,7 @@ String getTimeString()
 
 String getDateString()
 {
-  char buf1[10];
+  char buf1[12];
   sprintf(buf1, "%02d/%02d/%04d",  day, month, year);
   return String(buf1);
 }

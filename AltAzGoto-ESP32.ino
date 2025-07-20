@@ -62,12 +62,11 @@ void setup() {
 
 void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
 {
-  //Serial.println("RADEC_to_ALTAZ " + String(ra) + " " + String(dec));
     SKYMAP_date_time_values_t dt;
     dt.year = getYear();
     dt.month = getMonth();
     dt.day = getDay();
-    dt.hour = getHour();
+    dt.hour = (double)getHour() + getMinute()/60.0;
 
     SKYMAP_star_t target;
     target.right_ascension = ra;
@@ -79,8 +78,11 @@ void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
     SKYMAP_search_result_t search_result = SKYMAP_observe_object(&skymap);
     alt = search_result.altitude;
     az = search_result.azimuth;
-    
-  //Serial.println("RADEC_to_ALTAZ result" + String(alt) + " " + String(az));
+
+    // To avoid continually turning in circles (and tangling power leads), if 
+    // az is 180-360 turn counter clockwise to get there, and clockwise if it's
+    // 0-180
+    if (az > 180) az = -1 * (360-az);
 }
 
 void loop() {
@@ -100,6 +102,7 @@ void loop() {
       {
         Serial.println("setting time");
         setDeviceTime(data["year"], data["month"], data["day"], data["hour"], data["minutes"], data["seconds"]);
+        Serial.println(getDateString());
         Serial.println(getTimeString());
       }
     }
@@ -112,6 +115,7 @@ void loop() {
           currentDEC = msg["DEC"];
           double alt, az;
           RADEC_to_ALTAZ(currentRA, currentDEC, alt, az);
+          Serial.println("ra " + String(msg["RA"]) + " dec " + String(msg["DEC"]));
           Serial.println("setting target alt: " + String(alt) + " az: " + String(az));
           motors.setTarget(alt, az);
           currentAction = SLEWING;
@@ -163,9 +167,10 @@ void loop() {
     case TRACKING:
       // tracking - recalculate alt/az for current time, and
       // move there
-      Serial.println("Tracking");
+      //Serial.println("Tracking");
       double alt, az;
       RADEC_to_ALTAZ(currentRA, currentDEC, alt, az);
+      yield();
       motors.setTarget(alt, az);
       break;
     case PACKAWAY:
@@ -177,6 +182,5 @@ void loop() {
     default:
       break;
   }
-  motors.update();
 }
 
