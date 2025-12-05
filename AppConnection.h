@@ -27,6 +27,10 @@ class AppConnection
   private:
     void reconnect();
   void sendRequest();
+  void log(String txt);
+
+  bool m_gotConnection;
+  IPAddress m_mobileIP;
 
 };
 

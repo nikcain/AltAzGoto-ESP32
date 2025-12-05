@@ -8,7 +8,8 @@ WiFiServer m_server(80);
 bool AppConnection::init()
 {
   Serial.println("app init");
-
+  m_gotConnection = false;
+  
   if (!WiFi.softAP(ssid, password)) {
     log_e("Soft AP creation failed.");
     while(1);
@@ -19,7 +20,6 @@ bool AppConnection::init()
   Serial.println(myIP);
 
   m_server.begin();
-  Serial.println(WiFi.localIP());
   return true;
 }
 
@@ -37,6 +37,9 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
     {
       if (client.available()) 
       {
+        m_mobileIP = client.remoteIP();
+        //Serial.println("got cnx from " + m_mobileIP.toString());
+        m_gotConnection = true;
         char c = client.read();
         if (c == '\n' && currentLineIsBlank)
         {
@@ -77,6 +80,7 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
     }
     //Serial.println("good json: " + content);
     //String currentStatus = "{\"Tracking\":false,\"Calibrating\":false,\"DateTimeSet\":true, \"targetRA\":1.234,\"targetDEC\":5.6789,\"currentRA\":0.1111,\"currentDEC\":0.2222}";
+    //log(content);
     if (cmd["year"]) //content != "{}")
     {
       //Serial.println("inbound: " + content);
@@ -87,6 +91,9 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
       //Serial.println("return http 200 status plus device status: " + currentStatus);
       int msglen = currentStatus.length();
       client.println("HTTP/1.1 200 OK\nContent-Length: "+String(msglen)+"\n\n" + currentStatus);
+      String c = cmd["messageType"];
+      if (c == "Move") c += " " + String(cmd["message"]["Move"]);
+      log(c);
     }
     client.stop();
     
@@ -98,4 +105,16 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
 void AppConnection::reconnect()
 {
 
+}
+
+void AppConnection::log(String txt)
+{
+  if (!m_gotConnection) return;
+  Serial.println("logging to " + m_mobileIP.toString() + " " + txt);
+  NetworkClient client;
+
+  if (client.connect(m_mobileIP, 5432)) {
+    client.print(txt);
+  }
+  client.stop();
 }
