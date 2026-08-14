@@ -1,7 +1,10 @@
 #include "AppConnection.h"
 
+#define LED 2
 const char *ssid = "Astro";
 const char *password = "pants-run-glad";
+
+bool connectedtoservermsg = true;
 
 WiFiServer m_server(80);
 
@@ -24,13 +27,12 @@ bool AppConnection::init()
 }
 
 bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
-{ 
-  
+{         
   //Serial.println("getCommand");
   WiFiClient client = m_server.available();
   if (client) {
     
-  //Serial.println("client connected");
+  Serial.println("client connected");
     String currentLine = "";
     bool currentLineIsBlank = true;
     while (client.connected()) 
@@ -38,7 +40,11 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
       if (client.available()) 
       {
         m_mobileIP = client.remoteIP();
-        //Serial.println("got cnx from " + m_mobileIP.toString());
+        if (connectedtoservermsg) {
+          log("Connected to server");
+          connectedtoservermsg = false;
+        }
+        if (!m_gotConnection) { Serial.println("got cnx from " + m_mobileIP.toString()); }
         m_gotConnection = true;
         char c = client.read();
         if (c == '\n' && currentLineIsBlank)
@@ -58,6 +64,11 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
           currentLineIsBlank = false;
         }
       }
+      else
+      {
+        connectedtoservermsg = false;
+        digitalWrite(LED, LOW);
+      }
     }
 
     //Serial.println("header is " + currentLine);
@@ -75,6 +86,7 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
     if (error) {
       Serial.println("bad json: " + content);
       client.println("HTTP/1.1 400 Bad Request");
+      log("bad json");
       //delay(100);
       return false;
     }
@@ -84,7 +96,9 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
     if (cmd["year"]) //content != "{}")
     {
       //Serial.println("inbound: " + content);
-        client.println("HTTP/1.1 200 OK");
+        client.println("HTTP/1.1 200 OK");  
+        
+        digitalWrite(LED, HIGH);
     }
     else
     {
@@ -93,7 +107,8 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
       client.println("HTTP/1.1 200 OK\nContent-Length: "+String(msglen)+"\n\n" + currentStatus);
       String c = cmd["messageType"];
       if (c == "Move") c += " " + String(cmd["message"]["Move"]);
-      log(c);
+      log(c);  
+        digitalWrite(LED, HIGH);
     }
     client.stop();
     

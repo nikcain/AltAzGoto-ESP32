@@ -22,26 +22,18 @@ class stepperMotors
     // then does a goto to a known object. Once there, turn on calibrate mode,
     // manual move to center the object, and turn off calibrate mode (calibrate
     // mode simply doesn't update the stored current position during a manual move)
-
-    // ESP-wroom-32 pin out - using 10 pins on LHS going from 3.3V
-    // first four used for V & GND, then two sets of Enable, Step, Dir
-    //  Az step = 25, dir = 27
-
-  // 34, 35, 36, & 39 are all input only!!!
-
-    // Alt step = 42, dir = 40 
-    // enable pins wired to GND (enabled)
-    AzStepper = new AccelStepper(AccelStepper::DRIVER, 27, 26 ); // step, dir 
+    
+    // wroom
+    AzStepper = new AccelStepper(AccelStepper::DRIVER, 33, 32 ); // step, dir 
     AzStepper->setMaxSpeed(maxspeed);
     AzStepper->setAcceleration(acceleration);
     AzStepper->setCurrentPosition(0);
-    //AzStepper->setMinPulseWidth(20);
 
-    AltStepper = new AccelStepper(AccelStepper::DRIVER, 12, 14);    // step, dir 
+    // wroom
+    AltStepper = new AccelStepper(AccelStepper::DRIVER, 27, 26);    // step, dir 
     AltStepper->setMaxSpeed(maxspeed);
     AltStepper->setAcceleration(acceleration);
     AltStepper->setCurrentPosition(getStepsFordegrees(true, 90));
-    //AltStepper->setMinPulseWidth(20);
 
     moveamount = 10;
   }

@@ -28,7 +28,7 @@ stepperMotors motors;
 int updown = 0;
 int leftright = 0;
 int datetimeitembeingedited = 0;
-
+bool enableTracking = true;
 SKYMAP_skymap_t skymap;
 double currentRA;
 double currentDEC;
@@ -38,18 +38,17 @@ double mylongitude = -3.0954659;
 
 void setup() {  
 
+  Serial.begin(115200);
   pinMode(LED, OUTPUT);
+  sleep(1);
+  digitalWrite(LED, LOW);
 
 //#ifdef MYDEBUG
-  Serial.begin(9600);
   Serial.println("lets go!");
 //#endif
 
   app.init();
   
-  digitalWrite(LED,HIGH);
-  //Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-
   calibrating = false;
   motors.init();
   currentAction = INACTIVE;
@@ -62,6 +61,7 @@ void setup() {
 
 void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
 {
+  
     SKYMAP_date_time_values_t dt;
     dt.year = getYear();
     dt.month = getMonth();
@@ -79,6 +79,11 @@ void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
     alt = search_result.altitude;
     az = search_result.azimuth;
 
+    MinimumAz(az);
+}
+
+void MinimumAz(double& az)
+{
     // To avoid continually turning in circles (and tangling power leads), if 
     // az is 180-360 turn counter clockwise to get there, and clockwise if it's
     // 0-180
@@ -86,6 +91,7 @@ void RADEC_to_ALTAZ(double ra, double dec, double& alt, double& az)
 }
 
 void loop() {
+
   JsonDocument data;
   double a1,a2;
   motors.getCurrentPostion(a1,a2);
@@ -104,13 +110,28 @@ void loop() {
         setDeviceTime(data["year"], data["month"], data["day"], data["hour"], data["minutes"], data["seconds"]);
         Serial.println(getDateString());
         Serial.println(getTimeString());
+        app.log("date set");
       }
     }
     if (data["message"])
     {
       JsonDocument msg = data["message"];
       Serial.println("messagetype " + String(data["messageType"]));
+
+      if (data["messageType"] == "SetAltAz") {
+          enableTracking = false;
+          double alt, az;
+          
+          alt = msg["ALT"];
+          az = msg["AZ"];
+~-        Serial.println("setting target alt: " + String(alt) + " az: " + String(az));
+          
+          MinimumAz(az);
+          motors.setTarget(alt, az);
+          currentAction = SLEWING;
+      }
       if (data["messageType"] == "SetTarget") {
+          enableTracking = true;
           currentRA = msg["RA"];
           currentDEC = msg["DEC"];
           double alt, az;
@@ -134,6 +155,7 @@ void loop() {
         if (msg["Tracking"]) 
         {
           Serial.println("tracking on");
+          enableTracking = true;
           currentAction = TRACKING;
         }
         else {
@@ -161,8 +183,11 @@ void loop() {
   switch (currentAction) {
     case SLEWING:
       // slewing to object
+      if (enableTracking) {
       Serial.println("Completed Slew, now tracking");
-      currentAction = TRACKING;        
+      currentAction = TRACKING;
+      }
+      else { currentAction = INACTIVE; }        
       break;
     case TRACKING:
       // tracking - recalculate alt/az for current time, and

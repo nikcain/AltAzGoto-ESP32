@@ -23,11 +23,11 @@ class AppConnection
   bool init();
   void getStatus();
   bool getCommand(JsonDocument &cmd, String currentStatus);
+  void log(String txt);
 
   private:
     void reconnect();
   void sendRequest();
-  void log(String txt);
 
   bool m_gotConnection;
   IPAddress m_mobileIP;
