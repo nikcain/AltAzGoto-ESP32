@@ -14,7 +14,7 @@ class stepperMotors
 {
   public:
 
-  void init()
+  void init(AppConnection app)
   {
     // position zero is alt = 90, az = 0 (so tube vertical, az base set to north
     // - this corresponds to storage position, so easier set up)
@@ -23,6 +23,7 @@ class stepperMotors
     // manual move to center the object, and turn off calibrate mode (calibrate
     // mode simply doesn't update the stored current position during a manual move)
     
+    m_app = app;
     // wroom
     AzStepper = new AccelStepper(AccelStepper::DRIVER, 33, 32 ); // step, dir 
     AzStepper->setMaxSpeed(maxspeed);
@@ -79,7 +80,8 @@ class stepperMotors
       AzStepper->run();
       AltStepper->run();
       yield();
-    } while (!(AltStepper->distanceToGo() == 0 && AzStepper->distanceToGo() == 0));
+      
+    } while (!(AltStepper->distanceToGo() == 0 && AzStepper->distanceToGo() == 0) && m_app.checkForCommand() != "Stop");
   }
 
   void getCurrentPostion(double& alt, double& az)
@@ -89,6 +91,7 @@ class stepperMotors
   }
 
 private:
+  AppConnection m_app;
   AccelStepper* AzStepper; 
   AccelStepper* AltStepper;
   int moveamount;

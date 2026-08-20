@@ -26,13 +26,13 @@ bool AppConnection::init()
   return true;
 }
 
-bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
-{         
-  //Serial.println("getCommand");
+String AppConnection::checkForCommand( bool Tracking, bool Calibrating, bool DateTimeSet, double targetRA, double targetDEC, double currentAlt, double currentAz)
+{
+ //Serial.println("getCommand");
+ String ret = "None";
   WiFiClient client = m_server.available();
-  if (client) {
-    
-  Serial.println("client connected");
+  if (client) { 
+    Serial.println("client connected");
     String currentLine = "";
     bool currentLineIsBlank = true;
     while (client.connected()) 
@@ -82,40 +82,47 @@ bool AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
     for (int i = 0; i<contentlength.toInt(); i++) {
       content += (char)client.read();
     }
-    DeserializationError error = deserializeJson(cmd, content);
+    DeserializationError error = deserializeJson(m_latestCmd, content);
     if (error) {
       Serial.println("bad json: " + content);
       client.println("HTTP/1.1 400 Bad Request");
       log("bad json");
       //delay(100);
-      return false;
+      return "None";
     }
     //Serial.println("good json: " + content);
-    //String currentStatus = "{\"Tracking\":false,\"Calibrating\":false,\"DateTimeSet\":true, \"targetRA\":1.234,\"targetDEC\":5.6789,\"currentRA\":0.1111,\"currentDEC\":0.2222}";
     //log(content);
-    if (cmd["year"]) //content != "{}")
+    if (m_latestCmd["year"]) //content != "{}")
     {
       //Serial.println("inbound: " + content);
-        client.println("HTTP/1.1 200 OK");  
-        
-        digitalWrite(LED, HIGH);
+      client.println("HTTP/1.1 200 OK");  
+      digitalWrite(LED, HIGH);
+      ret ="Date";
     }
     else
     {
+      String currentStatus = "{\"Tracking\":" +Tracking+ ",\"Calibrating\":" +Calibrating+ ",\"DateTimeSet\":" +DateTimeSet+ ", \"targetRA\":" +targetRA+ ",\"targetDEC\":" +targetDEC+ ",\"currentAlt\":" +currentAlt+ ",\"currentAz\":" +currentAz+ "}";
+    
       //Serial.println("return http 200 status plus device status: " + currentStatus);
       int msglen = currentStatus.length();
       client.println("HTTP/1.1 200 OK\nContent-Length: "+String(msglen)+"\n\n" + currentStatus);
-      String c = cmd["messageType"];
-      if (c == "Move") c += " " + String(cmd["message"]["Move"]);
+      String c = m_latestCmd["messageType"];
+      if (c == "Move") c += " " + String(m_latestCmd["message"]["Move"]);
       log(c);  
-        digitalWrite(LED, HIGH);
+      digitalWrite(LED, HIGH);
+      ret = c;
     }
     client.stop();
-    
-    return true;
   }
-  return false;
+  return ret;
 }
+
+void AppConnection::getCommand(JsonDocument &cmd, String currentStatus)
+{         
+  cmd = m_latestCmd;
+  m_latestStatus = currentStatus;
+}
+
 
 void AppConnection::reconnect()
 {
@@ -132,4 +139,4 @@ void AppConnection::log(String txt)
     client.print(txt);
   }
   client.stop();
-}
+}

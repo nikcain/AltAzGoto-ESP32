@@ -50,7 +50,7 @@ void setup() {
   app.init();
   
   calibrating = false;
-  motors.init();
+  motors.init(app);
   currentAction = INACTIVE;
 
   SKYMAP_observer_position_t observation_location; 
@@ -101,7 +101,8 @@ void loop() {
                           ",\"DateTimeSet\":true, \"targetRA\":1.234,\"targetDEC\":5.6789,\"currentRA\":" + String(a1) + 
                           ",\"currentDEC\":" + String(a2) + "}";
   //Serial.println(currentStatus);
-  while (app.getCommand(data, currentStatus)) {
+  while (app.checkForCommand( enableTracking, false, deviceTimeSet(), 0, 0, a1, a2) != "None") {
+    app.getCommand(data, currentStatus);
     if (data["year"])
     {
       if (!deviceTimeSet())
@@ -165,7 +166,9 @@ void loop() {
       }
       if (data["messageType"] == "Reset") {
         // sets position to vertical up, az pointing north
-        currentAction = PACKAWAY;
+        motors.setTarget(90,0);
+      
+        currentAction = SLEWING;
       }
       if (data["messageType"] == "Stop") {
         // stop all motors
@@ -184,8 +187,8 @@ void loop() {
     case SLEWING:
       // slewing to object
       if (enableTracking) {
-      Serial.println("Completed Slew, now tracking");
-      currentAction = TRACKING;
+        Serial.println("Completed Slew, now tracking");
+        currentAction = TRACKING;
       }
       else { currentAction = INACTIVE; }        
       break;
@@ -199,8 +202,9 @@ void loop() {
       motors.setTarget(alt, az);
       break;
     case PACKAWAY:
-      motors.setTarget(90,0);
-    break;
+      //motors.setTarget(90,0);
+      currentAction = SLEWING;
+      break;
     case INACTIVE:
       //Serial.print("-");
       break;

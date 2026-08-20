@@ -22,15 +22,18 @@ class AppConnection
 
   bool init();
   void getStatus();
-  bool getCommand(JsonDocument &cmd, String currentStatus);
+  String checkForCommand( bool Tracking, bool Calibrating, bool DateTimeSet, double targetRA, double targetDEC, double currentRA, double currentDEC);
+  void getCommand(JsonDocument &cmd, String currentStatus);
   void log(String txt);
 
   private:
     void reconnect();
-  void sendRequest();
+    void sendRequest();
 
   bool m_gotConnection;
   IPAddress m_mobileIP;
+  JsonDocument m_latestCmd;
+  String m_latestStatus;
 
 };
 
